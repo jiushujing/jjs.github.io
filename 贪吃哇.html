@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃的你 - 九殊鞭策gemini自定义版</title>
+    <!-- 引入 TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #game-container { position: relative; }
+        #game-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(5px);
+        }
+        .control-btn { -webkit-tap-highlight-color: transparent; }
+        input:disabled {
+            cursor: not-allowed;
+            background-color: #374151; /* bg-gray-700 */
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-white min-h-screen flex flex-col items-center justify-center p-4 font-mono select-none">
+
+    <div class="w-full max-w-sm md:max-w-md">
+        <!-- 游戏头部 -->
+        <header class="flex justify-between items-center w-full mb-4">
+            <h1 class="text-2xl font-bold text-green-400">贪吃的你</h1>
+            <div class="text-lg">
+                得分: <span id="score" class="font-bold text-yellow-400">0</span>
+            </div>
+        </header>
+
+        <!-- 【修改点 2】自定义设置区域 (新布局) -->
+        <div id="settings-panel" class="mb-4 space-y-3">
+            <!-- 第一排: 边长 和 速度 -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <!-- 【修改点 1】地图边长设置 -->
+                    <label for="tile-count-input" class="block text-center text-sm font-bold mb-1 text-gray-400">地图边长 (6 ~ 12)</label>
+                    <input type="number" id="tile-count-input" min="6" max="12" step="1" value="8" class="w-full bg-gray-700 border border-gray-600 rounded-lg text-center py-2 transition focus:border-green-500 focus:ring-green-500">
+                </div>
+                <div>
+                    <label for="speed-input" class="block text-center text-sm font-bold mb-1 text-gray-400">游戏速度 (0.1 ~ 5.0)</label>
+                    <input type="number" id="speed-input" min="0.1" max="5.0" step="0.01" value="1.5" class="w-full bg-gray-700 border border-gray-600 rounded-lg text-center py-2 transition focus:border-green-500 focus:ring-green-500">
+                </div>
+            </div>
+            <!-- 第二排: 图标URL -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="player-icon-input" class="block text-center text-sm font-bold mb-1 text-gray-400">你的图标 (URL)</label>
+                    <input type="text" id="player-icon-input" placeholder="默认为 🐸" class="w-full bg-gray-700 border border-gray-600 rounded-lg text-center px-2 py-2 text-sm transition focus:border-green-500 focus:ring-green-500">
+                </div>
+                <div>
+                    <label for="food-icon-input" class="block text-center text-sm font-bold mb-1 text-gray-400">食物图标 (URL)</label>
+                    <input type="text" id="food-icon-input" placeholder="默认为 🦟" class="w-full bg-gray-700 border border-gray-600 rounded-lg text-center px-2 py-2 text-sm transition focus:border-green-500 focus:ring-green-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏容器 -->
+        <div id="game-container" class="w-full aspect-square rounded-lg overflow-hidden shadow-2xl shadow-green-500/20">
+            <canvas id="gameCanvas" class="bg-gray-900"></canvas>
+            <div id="game-overlay" class="flex flex-col items-center justify-center text-center p-8">
+                <h2 id="status-title" class="text-4xl font-extrabold mb-2 text-white">准备好了吗?</h2>
+                <p id="status-subtitle" class="text-gray-300 mb-6">自定义设置，然后开始游戏</p>
+                <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition-transform transform hover:scale-105 focus:outline-none">
+                    开始游戏
+                </button>
+            </div>
+        </div>
+
+        <!-- 触摸控制按钮 -->
+        <div id="touch-controls" class="flex flex-col items-center gap-3 mt-6 w-full max-w-xs mx-auto">
+            <div class="w-full flex justify-center"><button id="btn-up" class="control-btn bg-gray-700 p-4 rounded-lg w-16 h-16 flex items-center justify-center active:bg-green-500"> <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg> </button></div>
+            <div class="w-full flex justify-between"><button id="btn-left" class="control-btn bg-gray-700 p-4 rounded-lg w-16 h-16 flex items-center justify-center active:bg-green-500"> <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg> </button><button id="btn-down" class="control-btn bg-gray-700 p-4 rounded-lg w-16 h-16 flex items-center justify-center active:bg-green-500"> <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> </button><button id="btn-right" class="control-btn bg-gray-700 p-4 rounded-lg w-16 h-16 flex items-center justify-center active:bg-green-500"> <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg> </button></div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM 元素获取 ---
+        const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const gameOverlay = document.getElementById('game-overlay'), startBtn = document.getElementById('start-btn');
+        const statusTitle = document.getElementById('status-title'), statusSubtitle = document.getElementById('status-subtitle');
+        const speedInput = document.getElementById('speed-input');
+        const playerIconInput = document.getElementById('player-icon-input');
+        const foodIconInput = document.getElementById('food-icon-input');
+        const tileCountInput = document.getElementById('tile-count-input'); // 新增
+
+        // --- 游戏配置 ---
+        const BASE_SPEED = 4.2;
+        let tileCount, canvasSize, gridSize; // gridSize 从常量变为动态计算的变量
+
+        // --- 游戏状态 ---
+        let snake, food, dx, dy, score, gameState, gameSpeed, lastRenderTime = 0;
+        let playerImage = null, foodImage = null;
+
+        // --- 初始化高清画布尺寸 ---
+        function setupCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const size = document.getElementById('game-container').clientWidth;
+            
+            // 【修改点 1】从输入框读取地图边长，并计算每个格子的像素大小
+            tileCount = Math.max(6, Math.min(12, parseInt(tileCountInput.value) || 8));
+            gridSize = size / tileCount; // 动态计算格子像素尺寸
+
+            canvas.width = Math.round(size * dpr);
+            canvas.height = Math.round(size * dpr);
+            canvas.style.width = `${size}px`;
+            canvas.style.height = `${size}px`;
+            ctx.scale(dpr, dpr);
+
+            canvasSize = size;
+        }
+
+        // --- 游戏初始化/重置 ---
+        function init() {
+            snake = [{ x: Math.floor(tileCount / 2), y: Math.floor(tileCount / 2) }];
+            dx = dy = score = 0;
+            const speedMultiplier = Math.max(0.1, Math.min(5.0, parseFloat(speedInput.value) || 1.5));
+            gameSpeed = BASE_SPEED * speedMultiplier;
+            updateScoreDisplay();
+            generateFood();
+        }
+
+        // --- 游戏主循环 ---
+        function gameLoop(currentTime) {
+            if (gameState !== 'running') return;
+            window.requestAnimationFrame(gameLoop);
+            const secondsSinceLastRender = (currentTime - lastRenderTime) / 1000;
+            if (secondsSinceLastRender < 1 / gameSpeed) return;
+            lastRenderTime = currentTime;
+            update();
+            draw();
+        }
+
+        // --- 更新与绘制 ---
+        function update() { moveSnake(); checkCollision(); }
+        function draw() {
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+            drawFood();
+            drawSnake();
+        }
+
+        // --- 移动蛇 ---
+        function moveSnake() {
+            if (dx === 0 && dy === 0) return;
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            snake.unshift(head);
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                const speedMultiplier = Math.max(0.1, Math.min(5.0, parseFloat(speedInput.value) || 1.5));
+                gameSpeed += 0.15 * speedMultiplier;
+                updateScoreDisplay();
+                generateFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        // --- 绘制蛇（主角） ---
+        function drawSnake() {
+            const head = snake[0];
+            if (playerImage && playerImage.complete) {
+                ctx.drawImage(playerImage, head.x * gridSize, head.y * gridSize, gridSize, gridSize);
+            } else {
+                ctx.font = `${gridSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🐸', head.x * gridSize + gridSize / 2, head.y * gridSize + gridSize / 2);
+            }
+            ctx.fillStyle = '#4ade80';
+            for (let i = 1; i < snake.length; i++) {
+                ctx.beginPath();
+                ctx.roundRect(snake[i].x * gridSize + 1, snake[i].y * gridSize + 1, gridSize - 2, gridSize - 2, [4]);
+                ctx.fill();
+            }
+        }
+
+        // --- 绘制食物 ---
+        function drawFood() {
+            if (foodImage && foodImage.complete) {
+                ctx.drawImage(foodImage, food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+            } else {
+                ctx.font = `${gridSize * 0.9}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🦟', food.x * gridSize + gridSize / 2, food.y * gridSize + gridSize / 2);
+            }
+        }
+
+        // --- 生成食物 (不允许贴边) ---
+        function generateFood() {
+            food = {
+                x: Math.floor(Math.random() * (tileCount - 2)) + 1,
+                y: Math.floor(Math.random() * (tileCount - 2)) + 1
+            };
+            for (const segment of snake) {
+                if (segment.x === food.x && segment.y === food.y) {
+                    generateFood(); return;
+                }
+            }
+        }
+
+        // --- 碰撞检测 ---
+        function checkCollision() {
+            const head = snake[0];
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) return gameOver();
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) return gameOver();
+            }
+        }
+
+        // --- UI & 状态管理 ---
+        function updateScoreDisplay() { scoreEl.textContent = score; }
+        function setControlsState(enabled) {
+            speedInput.disabled = !enabled;
+            playerIconInput.disabled = !enabled;
+            foodIconInput.disabled = !enabled;
+            tileCountInput.disabled = !enabled; // 新增
+        }
+        function startGame() {
+            setupCanvas(); // 在开始时根据最新设置重新生成画布
+            init();
+            gameState = 'running';
+            gameOverlay.style.display = 'none';
+            setControlsState(false);
+            window.requestAnimationFrame(gameLoop);
+        }
+        function gameOver() {
+            gameState = 'gameOver';
+            gameOverlay.style.display = 'flex';
+            statusTitle.textContent = '游戏结束';
+            statusSubtitle.textContent = `你的最终得分是 ${score} 分！`;
+            startBtn.textContent = '重新开始';
+            setControlsState(true);
+        }
+
+        // --- 方向控制 ---
+        function changeDirection(event) {
+            if (gameState !== 'running' && !(dx === 0 && dy === 0)) return;
+            const keyMap = { 37: 'left', 65: 'left', 38: 'up', 87: 'up', 39: 'right', 68: 'right', 40: 'down', 83: 'down' };
+            const direction = keyMap[event.keyCode];
+            const goingUp = dy === -1, goingDown = dy === 1, goingRight = dx === 1, goingLeft = dx === -1;
+            if (direction === 'left' && !goingRight) { dx = -1; dy = 0; }
+            if (direction === 'up' && !goingDown) { dx = 0; dy = -1; }
+            if (direction === 'right' && !goingLeft) { dx = 1; dy = 0; }
+            if (direction === 'down' && !goingUp) { dx = 0; dy = 1; }
+        }
+        
+        // --- 触摸按钮控制 ---
+        function setupTouchControls() {
+            const controls = {
+                'btn-up': { dx: 0, dy: -1, going: () => dy === 1 }, 'btn-down': { dx: 0, dy: 1, going: () => dy === -1 },
+                'btn-left': { dx: -1, dy: 0, going: () => dx === 1 }, 'btn-right': { dx: 1, dy: 0, going: () => dx === -1 },
+            };
+            for (const [id, dir] of Object.entries(controls)) {
+                document.getElementById(id).addEventListener('click', () => {
+                   if (gameState !== 'running' && !(dx === 0 && dy === 0)) return;
+                   if (!dir.going()) { dx = dir.dx; dy = dir.dy; }
+                });
+            }
+        }
+
+        // --- 图片加载逻辑 ---
+        function setupImageLoaders() {
+            function loadImage(inputElement, imageVariableSetter) {
+                const url = inputElement.value.trim();
+                if (!url) { imageVariableSetter(null); return; }
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => imageVariableSetter(img);
+                img.onerror = () => imageVariableSetter(null);
+                img.src = url;
+            }
+            playerIconInput.addEventListener('input', () => loadImage(playerIconInput, (img) => playerImage = img));
+            foodIconInput.addEventListener('input', () => loadImage(foodIconInput, (img) => foodImage = img));
+        }
+
+        // --- 事件监听 ---
+        document.addEventListener('keydown', changeDirection);
+        startBtn.addEventListener('click', startGame);
+        window.addEventListener('resize', () => {
+            setupCanvas();
+            draw();
+            gameState = 'waiting';
+            gameOverlay.style.display = 'flex';
+            statusTitle.textContent = '准备好了吗?';
+            statusSubtitle.textContent = `屏幕尺寸已变化，请重新开始`;
+            startBtn.textContent = '开始游戏';
+            setControlsState(true);
+            init();
+        });
+
+        // --- 启动 ---
+        setupCanvas();
+        init();
+        draw();
+        setupTouchControls();
+        setupImageLoaders();
+        setControlsState(true);
+        gameState = 'waiting';
+    </script>
+</body>
+</html>
